@@ -26,7 +26,7 @@ class MonitorBakeTask implements Tasklet {
         def previousStatus = chunkContext.stepContext.stepExecution.jobExecution.executionContext.with {
             get("bake.status") as BakeStatus
         }
-        def newStatus = bakery.lookupStatus(region, previousStatus.id).toBlockingObservable().single()
+        def newStatus = bakery.lookupStatus(region, previousStatus.id)
         chunkContext.stepContext.stepExecution.jobExecution.executionContext.with {
             put("bake.status", newStatus)
         }

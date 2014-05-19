@@ -1,17 +1,17 @@
 package com.netflix.bluespar.orca.bakery.api
 
 import com.netflix.bluespar.orca.test.HttpServerSpecification
-import retrofit.RestAdapter
-import retrofit.RetrofitError
+import feign.Feign
+import feign.FeignException
+import feign.Logger
+import feign.gson.GsonDecoder
 import spock.lang.Subject
 
 import static com.google.common.net.HttpHeaders.LOCATION
+import static feign.Logger.Level.FULL
 import static java.net.HttpURLConnection.*
-import static retrofit.RestAdapter.LogLevel.FULL
 
 class BakeryServiceSpec extends HttpServerSpecification {
-
-    RestAdapter restAdapter
 
     @Subject
     BakeryService bakery
@@ -24,11 +24,11 @@ class BakeryServiceSpec extends HttpServerSpecification {
     final statusId = "s-123456789"
 
     def setup() {
-        restAdapter = new RestAdapter.Builder()
-            .setEndpoint(baseURI)
-            .setLogLevel(FULL)
-            .build()
-        bakery = restAdapter.create(BakeryService)
+        bakery = Feign.builder()
+            .logger(new Logger.ErrorLogger())
+            .logLevel(FULL)
+            .decoder(new GsonDecoder())
+            .target(BakeryService, baseURI)
     }
 
     def "can lookup a bake status"() {
@@ -48,7 +48,7 @@ class BakeryServiceSpec extends HttpServerSpecification {
         }
 
         expect:
-        with(bakery.lookupStatus("us-west-1", statusId).toBlockingObservable().first()) {
+        with(bakery.lookupStatus("us-west-1", statusId)) {
             id == statusId
             state == BakeStatus.State.COMPLETED
         }
@@ -59,11 +59,11 @@ class BakeryServiceSpec extends HttpServerSpecification {
         expect("GET", "$statusPath/$statusId", HTTP_NOT_FOUND)
 
         when:
-        bakery.lookupStatus("us-west-1", statusId).toBlockingObservable().first()
+        bakery.lookupStatus("us-west-1", statusId)
 
         then:
-        def ex = thrown(RetrofitError)
-        ex.response.status == HTTP_NOT_FOUND
+        def ex = thrown(FeignException)
+        ex.message.startsWith "status $HTTP_NOT_FOUND"
     }
 
     def "should return status of newly created bake"() {
@@ -81,7 +81,7 @@ class BakeryServiceSpec extends HttpServerSpecification {
         }
 
         expect: "createBake should return the status of the bake"
-        with(bakery.createBake("us-west-1").toBlockingObservable().first()) {
+        with(bakery.createBake("us-west-1")) {
             id == statusId
             state == BakeStatus.State.PENDING
         }
@@ -104,7 +104,7 @@ class BakeryServiceSpec extends HttpServerSpecification {
         expect "GET", "$statusPath/$statusId", HTTP_OK, responseContent
 
         expect: "createBake should return the status of the bake"
-        with(bakery.createBake("us-west-1").toBlockingObservable().first()) {
+        with(bakery.createBake("us-west-1")) {
             id == statusId
             state == BakeStatus.State.RUNNING
         }

@@ -8,7 +8,6 @@ import org.springframework.batch.core.StepContribution
 import org.springframework.batch.core.StepExecution
 import org.springframework.batch.core.scope.context.ChunkContext
 import org.springframework.batch.core.scope.context.StepContext
-import rx.Observable
 import spock.lang.Specification
 import spock.lang.Subject
 
@@ -37,14 +36,14 @@ class CreateBakeTaskSpec extends Specification {
         task.execute(stepContribution, chunkContext)
 
         then:
-        1 * mockBakeService.createBake(region) >> Observable.empty()
+        1 * mockBakeService.createBake(region) >> null
     }
 
     def "stores the status of the bake in the job context"() {
         given:
         def bakeStatus = new BakeStatus(id: randomUUID(), state: RUNNING)
         task.bakery = Stub(BakeryService) {
-            createBake(region) >> Observable.from(bakeStatus)
+            createBake(region) >> bakeStatus
         }
 
         when:

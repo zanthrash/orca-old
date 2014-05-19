@@ -1,6 +1,5 @@
 package com.netflix.bluespar.orca.bakery.tasks
 
-import com.netflix.bluespar.orca.bakery.api.BakeStatus
 import com.netflix.bluespar.orca.bakery.api.BakeryService
 import groovy.transform.CompileStatic
 import org.springframework.batch.core.StepContribution
@@ -19,10 +18,9 @@ class CreateBakeTask implements Tasklet {
 
     @Override
     RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) {
-        bakery.createBake(chunkContext.stepContext.jobParameters.region as String).subscribe { BakeStatus bakeStatus ->
-            chunkContext.stepContext.stepExecution.jobExecution.executionContext.with {
-                put("bake.status", bakeStatus)
-            }
+        def bakeStatus = bakery.createBake(chunkContext.stepContext.jobParameters.region as String)
+        chunkContext.stepContext.stepExecution.jobExecution.executionContext.with {
+            put("bake.status", bakeStatus)
         }
         return FINISHED
     }

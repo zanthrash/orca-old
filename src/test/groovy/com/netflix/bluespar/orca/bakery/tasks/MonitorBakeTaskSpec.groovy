@@ -9,7 +9,6 @@ import org.springframework.batch.core.StepExecution
 import org.springframework.batch.core.scope.context.ChunkContext
 import org.springframework.batch.core.scope.context.StepContext
 import org.springframework.batch.repeat.RepeatStatus
-import rx.Observable
 import spock.lang.Specification
 import spock.lang.Subject
 import spock.lang.Unroll
@@ -37,7 +36,7 @@ class MonitorBakeTaskSpec extends Specification {
 
         and:
         task.bakery = Stub(BakeryService) {
-            lookupStatus(region, id) >> Observable.from(new BakeStatus(id: id, state: bakeState))
+            lookupStatus(region, id) >> new BakeStatus(id: id, state: bakeState)
         }
 
         expect:
@@ -61,7 +60,7 @@ class MonitorBakeTaskSpec extends Specification {
 
         and:
         task.bakery = Stub(BakeryService) {
-            lookupStatus(region, id) >> Observable.from(new BakeStatus(id: id, state: BakeStatus.State.COMPLETED))
+            lookupStatus(region, id) >> new BakeStatus(id: id, state: BakeStatus.State.COMPLETED)
         }
 
         when:

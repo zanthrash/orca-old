@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.orca
 
+import com.netflix.astyanax.Keyspace
 import com.netflix.spinnaker.orca.cassandra.config.CassandraConfig
 import org.springframework.batch.core.BatchStatus
 import org.springframework.batch.test.JobLauncherTestUtils
@@ -12,6 +13,8 @@ class CassandraBackedRepositorySpec extends Specification {
 
     @Autowired
     JobLauncherTestUtils jobLauncherTestUtils
+
+    @Autowired Keyspace keyspace
 
     def "can run a job using a Cassandra backed job repository"() {
         when:

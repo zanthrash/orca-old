@@ -11,7 +11,7 @@ allprojects {
         final GROOVY_VERSION = "2.3.2"
         final SPRING_VERSION = "4.0.4.RELEASE"
         final BATCH_VERSION = "3.0.0.RC1"
-        final GUAVA_VERSION = "17.0"
+        final GUAVA_VERSION = "14.0.1"
         final RXJAVA_VERSION = "0.18.3"
         final RETROFIT_VERSION = "1.5.1"
         final SPOCK_VERSION = "0.7-groovy-2.0"

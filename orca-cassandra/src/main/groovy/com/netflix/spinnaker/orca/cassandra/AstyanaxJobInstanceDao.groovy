@@ -51,17 +51,17 @@ class AstyanaxJobInstanceDao implements JobInstanceDao {
 
         def jobKey = jobKeyGenerator.generateKey(jobParameters)
 
-        OperationResult<CqlResult<Integer, String>> result
         if (!Strings.isNullOrEmpty(jobKey)) {
-            result = keyspace.prepareQuery(CF_BATCH)
+            def result = keyspace.prepareQuery(CF_BATCH)
                 .withCql("SELECT JOB_INSTANCE_ID, JOB_NAME from JOB_INSTANCE where JOB_NAME = $jobName and JOB_KEY = $jobKey")
                 .execute()
+            mapSingleJobInstanceResult(result)
         } else {
-            result = keyspace.prepareQuery(CF_BATCH)
+            def result = keyspace.prepareQuery(CF_BATCH)
                 .withCql("SELECT JOB_INSTANCE_ID, JOB_NAME from JOB_INSTANCE where JOB_NAME = $jobName and (JOB_KEY = $jobKey OR JOB_KEY is NULL)")
                 .execute()
+            mapSingleJobInstanceResult(result)
         }
-        mapSingleJobInstanceResult(result)
     }
 
     @Override

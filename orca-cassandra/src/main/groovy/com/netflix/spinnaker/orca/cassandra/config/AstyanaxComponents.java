@@ -47,10 +47,9 @@ public class AstyanaxComponents {
         return new DefaultAstyanaxKeyspaceFactory(config, poolConfig, poolMonitor);
     }
 
-//    @ConditionalOnBean(Keyspace.class)
-    @Bean
-    public EmbeddedCassandraRunner embeddedCassandra(Keyspace keyspace, @Value("9160") int port, @Value("127.0.0.1") String host) {
-        return new EmbeddedCassandraRunner(keyspace, port, host);
-    }
+//    @Bean
+//    public EmbeddedCassandraRunner embeddedCassandra(Keyspace keyspace, @Value("9160") int port, @Value("127.0.0.1") String host) {
+//        return new EmbeddedCassandraRunner(keyspace, port, host);
+//    }
 
 }

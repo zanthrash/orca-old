@@ -75,7 +75,7 @@ class AstyanaxJobExecutionDao implements JobExecutionDao {
 
         assert jobExecution.id != null, "JobExecution ID cannot be null. JobExecution must be saved before it can be updated"
 
-        assert jobExecution.version, "JobExecution version cannot be null. JobExecution must be saved before it can be updated"
+        assert jobExecution.version > 0, "JobExecution version cannot be null. JobExecution must be saved before it can be updated"
 
         synchronized (jobExecution) {
             def version = jobExecution.version + 1
@@ -129,11 +129,34 @@ class AstyanaxJobExecutionDao implements JobExecutionDao {
         (0..<result.result.rows.size()).collect { int i ->
             mapJobExecutionFromRow(result, i, job)
         }
+        .sort { JobExecution it ->
+            it.createTime
+        }
+        .reverse()
     }
 
     @Override
     JobExecution getLastJobExecution(JobInstance jobInstance) {
-        return null
+        def result = keyspace.prepareQuery(columnFamily)
+            .withCql("""select job_execution_id, start_time, end_time, status, exit_code, exit_message, create_time,
+                               last_updated, version, job_configuration_location
+                          from batch_job_execution
+                         where job_instance_id = ?
+                         allow filtering""")
+            .asPreparedStatement()
+            .withLongValue(jobInstance.id)
+            .execute()
+
+        // TODO: inefficient much? But we can't do select where create_time = max(create_time) with CQL
+        def jobExecutions = (0..<result.result.rows.size()).collect { int i ->
+            mapJobExecutionFromRow(result, i, jobInstance)
+        }
+        .sort { JobExecution it ->
+            it.createTime
+        }
+        .reverse()
+
+        jobExecutions.empty ? null : jobExecutions.first()
     }
 
     @Override
@@ -147,7 +170,7 @@ class AstyanaxJobExecutionDao implements JobExecutionDao {
                      where job_instance_id in (${jobInstances.id.join(", ")})
                        and ended = false
                   /* order by e.job_execution_id desc*/""")
-        .execute()
+            .execute()
 
         (0..<result.result.rows.size()).collect { int i ->
             mapJobExecutionFromRow(result, i)

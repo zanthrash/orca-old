@@ -138,18 +138,6 @@ class AstyanaxJobExecutionDao implements JobExecutionDao {
 
     @Override
     Set<JobExecution> findRunningJobExecutions(String jobName) {
-//        final Set<JobExecution> result = new HashSet<JobExecution>();
-//        RowCallbackHandler handler = new RowCallbackHandler() {
-//            @Override
-//            public void processRow(ResultSet rs) throws SQLException {
-//                JobExecutionRowMapper mapper = new JobExecutionRowMapper();
-//                result.add(mapper.mapRow(rs, 0));
-//            }
-//        };
-//        getJdbcTemplate().query(getQuery(GET_RUNNING_EXECUTIONS), new Object[] { jobName }, handler);
-//
-//        return result;
-
         def jobInstances = jobInstanceDao.getJobInstances(jobName, 0, Integer.MAX_VALUE)
 
         def result = keyspace.prepareQuery(columnFamily)
@@ -157,7 +145,7 @@ class AstyanaxJobExecutionDao implements JobExecutionDao {
                            create_time, last_updated, version, job_instance_id, job_configuration_location
                       from batch_job_execution
                      where job_instance_id in (${jobInstances.id.join(", ")})
-                       and ended = true
+                       and ended = false
                   /* order by e.job_execution_id desc*/""")
         .execute()
 

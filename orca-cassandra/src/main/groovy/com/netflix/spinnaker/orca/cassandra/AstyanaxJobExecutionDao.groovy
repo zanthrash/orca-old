@@ -179,7 +179,23 @@ class AstyanaxJobExecutionDao implements JobExecutionDao {
 
     @Override
     JobExecution getJobExecution(Long executionId) {
-        return null
+        def result = keyspace.prepareQuery(columnFamily)
+            .withCql("""select job_execution_id, job_instance_id, start_time, end_time, status, exit_code, exit_message,
+                               create_time, last_updated, version, job_configuration_location
+                          from batch_job_execution
+                         where job_execution_id = ?""")
+            .asPreparedStatement()
+            .withLongValue(executionId)
+            .execute()
+
+        switch (result.result.rows.size()) {
+            case 0:
+                return null
+            case 1:
+                return mapJobExecutionFromRow(result, 0)
+            default:
+                throw new IllegalStateException("There must be at most one job execution with an id of $executionId. Found ${result.result.rows.size()}")
+        }
     }
 
     @Override

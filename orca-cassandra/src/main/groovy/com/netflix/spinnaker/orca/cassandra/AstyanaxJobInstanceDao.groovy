@@ -15,11 +15,12 @@ import org.springframework.batch.core.repository.dao.JobInstanceDao
 @CompileStatic
 class AstyanaxJobInstanceDao implements JobInstanceDao {
 
-    private
-    static ColumnFamily<Integer, String> CF_BATCH = ColumnFamily.newColumnFamily("batch", IntegerSerializer.get(), StringSerializer.get())
-
     private final Keyspace keyspace
-    private JobKeyGenerator<JobParameters> jobKeyGenerator = new DefaultJobKeyGenerator()
+    private final IdentifierGenerator idGenerator = new UUIDIdentifierGenerator()
+    private final JobKeyGenerator<JobParameters> jobKeyGenerator = new DefaultJobKeyGenerator()
+    // TODO: don't get why we need this when we're querying whatever random table with CQL
+    private
+    final ColumnFamily<Integer, String> columnFamily = ColumnFamily.newColumnFamily("batch", IntegerSerializer.get(), StringSerializer.get())
 
     AstyanaxJobInstanceDao(Keyspace keyspace) {
         this.keyspace = keyspace
@@ -33,14 +34,14 @@ class AstyanaxJobInstanceDao implements JobInstanceDao {
             throw new IllegalStateException("JobInstance must not already exist")
         }
 
-        def jobId = UUID.randomUUID().mostSignificantBits // TODO: extract a strategy
+        def jobId = idGenerator.next()
 
         def jobInstance = new JobInstance(jobId, jobName)
         jobInstance.incrementVersion()
 
         def jobKey = jobKeyGenerator.generateKey(jobParameters)
 
-        keyspace.prepareQuery(CF_BATCH)
+        keyspace.prepareQuery(columnFamily)
 //            .withCql("INSERT into BATCH_JOB_INSTANCE(JOB_INSTANCE_ID, JOB_NAME, JOB_KEY, VERSION) values (?, ?, ?, ?)")
             .withCql("insert into batch_job_instance(job_instance_id, job_name, job_key, version) values ($jobId, '$jobName', '$jobKey', $jobInstance.version)")
 //            .asPreparedStatement()
@@ -61,14 +62,14 @@ class AstyanaxJobInstanceDao implements JobInstanceDao {
         def jobKey = jobKeyGenerator.generateKey(jobParameters)
 
         if (Strings.isNullOrEmpty(jobKey)) {
-            def result = keyspace.prepareQuery(CF_BATCH)
+            def result = keyspace.prepareQuery(columnFamily)
                 .withCql("select job_instance_id, job_name from batch_job_instance where job_name = ? and job_key is null allow filtering")
-            .asPreparedStatement()
-            .withStringValue(jobName)
+                .asPreparedStatement()
+                .withStringValue(jobName)
                 .execute()
             mapSingleJobInstanceResult(result)
         } else {
-            def result = keyspace.prepareQuery(CF_BATCH)
+            def result = keyspace.prepareQuery(columnFamily)
                 .withCql("select job_instance_id, job_name from batch_job_instance where job_name = ? and job_key = ? allow filtering")
                 .asPreparedStatement()
                 .withStringValue(jobName)
@@ -80,7 +81,7 @@ class AstyanaxJobInstanceDao implements JobInstanceDao {
 
     @Override
     JobInstance getJobInstance(Long instanceId) {
-        def result = keyspace.prepareQuery(CF_BATCH)
+        def result = keyspace.prepareQuery(columnFamily)
             .withCql("select job_instance_id, job_name, job_key, version from batch_job_instance where job_instance_id = ?") // TODO: why does it select JOB_KEY and VERSION & then not use them?
             .asPreparedStatement()
             .withLongValue(instanceId)
@@ -90,7 +91,7 @@ class AstyanaxJobInstanceDao implements JobInstanceDao {
 
     @Override
     JobInstance getJobInstance(JobExecution jobExecution) {
-        def result = keyspace.prepareQuery(CF_BATCH)
+        def result = keyspace.prepareQuery(columnFamily)
             .withCql("select job_instance_id from batch_job_execution where job_execution_id = ?")
             .asPreparedStatement()
             .withLongValue(jobExecution.id)
@@ -106,7 +107,7 @@ class AstyanaxJobInstanceDao implements JobInstanceDao {
 
     @Override
     List<JobInstance> getJobInstances(String jobName, int start, int count) {
-        def result = keyspace.prepareQuery(CF_BATCH)
+        def result = keyspace.prepareQuery(columnFamily)
             .withCql("select job_instance_id, job_name from batch_job_instance where job_name = ? /*order by job_instance_id desc*/")
             .asPreparedStatement()
             .withStringValue(jobName)
@@ -116,7 +117,7 @@ class AstyanaxJobInstanceDao implements JobInstanceDao {
 
     @Override
     List<String> getJobNames() {
-        def result = keyspace.prepareQuery(CF_BATCH)
+        def result = keyspace.prepareQuery(columnFamily)
             .withCql("select /*distinct*/ job_name from batch_job_instance /*order by job_name*/")
             .execute()
         (0..<result.result.rows.size()).collect { int i ->
@@ -132,7 +133,7 @@ class AstyanaxJobInstanceDao implements JobInstanceDao {
         if (jobName.contains("*")) {
             jobName = jobName.replaceAll(/\*/, "%");
         }
-        def result = keyspace.prepareQuery(CF_BATCH)
+        def result = keyspace.prepareQuery(columnFamily)
             .withCql("select job_instance_id, job_name from batch_job_instance where job_name /*like*/ = ? /*order by job_instance_id desc*/") // can't do like. May be able to do a slice query if we really need it, see http://doanduyhai.wordpress.com/2012/07/05/apache-cassandra-tricks-and-traps/
             .asPreparedStatement()
             .withStringValue(jobName)
@@ -142,7 +143,7 @@ class AstyanaxJobInstanceDao implements JobInstanceDao {
 
     @Override
     int getJobInstanceCount(String jobName) throws NoSuchJobException {
-        def result = keyspace.prepareQuery(CF_BATCH)
+        def result = keyspace.prepareQuery(columnFamily)
             .withCql("select count(*) from batch_job_instance where job_name = ?")
             .asPreparedStatement()
             .withStringValue(jobName)

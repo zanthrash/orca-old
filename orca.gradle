@@ -8,7 +8,7 @@ allprojects {
     }
 
     ext {
-        final GROOVY_VERSION = "2.3.2"
+        final GROOVY_VERSION = "2.3.3"
         final SPRING_VERSION = "4.0.4.RELEASE"
         final BATCH_VERSION = "3.0.0.RC1"
         final GUAVA_VERSION = "14.0.1"

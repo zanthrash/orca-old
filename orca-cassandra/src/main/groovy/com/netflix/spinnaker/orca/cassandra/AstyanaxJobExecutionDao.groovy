@@ -38,18 +38,19 @@ class AstyanaxJobExecutionDao implements JobExecutionDao {
 
         jobExecution.id = idGenerator.next()
         keyspace.prepareQuery(columnFamily)
-            .withCql("""insert into batch_job_execution(job_execution_id, job_instance_id, start_time, end_time, status,
-                                                            exit_code, exit_message, version, create_time, last_updated,
-                                                            job_configuration_location)
-                                                    values ($jobExecution.id, $jobExecution.jobId,
-                                                            ${jobExecution.startTime?.time},
-                                                            ${jobExecution.endTime?.time},
-                                                            '$jobExecution.status', '$jobExecution.exitStatus.exitCode',
-                                                            '$jobExecution.exitStatus.exitDescription',
-                                                            $jobExecution.version,
-                                                            $jobExecution.createTime.time,
-                                                            ${jobExecution.lastUpdated?.time},
-                                                            $jobExecution.jobConfigurationName)""")
+            .withCql("""insert into batch_job_execution(job_execution_id, job_instance_id, start_time, end_time, ended,
+                                                        status, exit_code, exit_message, version, create_time,
+                                                        last_updated, job_configuration_location)
+                                                values ($jobExecution.id, $jobExecution.jobId,
+                                                        ${jobExecution.startTime?.time},
+                                                        ${jobExecution.endTime?.time},
+                                                        ${jobExecution.endTime != null},
+                                                        '$jobExecution.status', '$jobExecution.exitStatus.exitCode',
+                                                        '$jobExecution.exitStatus.exitDescription',
+                                                        $jobExecution.version,
+                                                        $jobExecution.createTime.time,
+                                                        ${jobExecution.lastUpdated?.time},
+                                                        $jobExecution.jobConfigurationName)""")
 //            .asPreparedStatement()
 //            .withLongValue(jobExecution.id)
 //            .withLongValue(jobExecution.jobId)
@@ -82,13 +83,14 @@ class AstyanaxJobExecutionDao implements JobExecutionDao {
             checkJobExecutionIdExists(jobExecution)
 
             def result = keyspace.prepareQuery(columnFamily)
-                .withCql("""update batch_job_execution set start_time = ?, end_time = ?, status = ?, exit_code = ?,
+                .withCql("""update batch_job_execution set start_time = ?, end_time = ?, ended = ?, status = ?, exit_code = ?,
                                                            exit_message = ?, version = ?, create_time = ?,
                                                            last_updated = ?
                                                      where job_execution_id = ? and version = ?""")
                 .asPreparedStatement()
                 .withLongValue(jobExecution.startTime?.time)
                 .withLongValue(jobExecution.endTime?.time)
+                .withBooleanValue(jobExecution.endTime != null)
                 .withStringValue(jobExecution.status.toString())
                 .withStringValue(jobExecution.exitStatus.exitCode)
                 .withStringValue(jobExecution.exitStatus.exitDescription)
@@ -118,7 +120,8 @@ class AstyanaxJobExecutionDao implements JobExecutionDao {
                            last_updated, version, job_configuration_location
                       from batch_job_execution
                      where job_instance_id = ?
-                  /* order by job_execution_id desc */""") // TODO: order by not supported on secondary index
+                  /* order by job_execution_id desc */
+                     allow filtering""") // TODO: order by not supported on secondary index
             .asPreparedStatement()
             .withLongValue(job.id)
             .execute()
@@ -135,7 +138,32 @@ class AstyanaxJobExecutionDao implements JobExecutionDao {
 
     @Override
     Set<JobExecution> findRunningJobExecutions(String jobName) {
-        return null
+//        final Set<JobExecution> result = new HashSet<JobExecution>();
+//        RowCallbackHandler handler = new RowCallbackHandler() {
+//            @Override
+//            public void processRow(ResultSet rs) throws SQLException {
+//                JobExecutionRowMapper mapper = new JobExecutionRowMapper();
+//                result.add(mapper.mapRow(rs, 0));
+//            }
+//        };
+//        getJdbcTemplate().query(getQuery(GET_RUNNING_EXECUTIONS), new Object[] { jobName }, handler);
+//
+//        return result;
+
+        def jobInstances = jobInstanceDao.getJobInstances(jobName, 0, Integer.MAX_VALUE)
+
+        def result = keyspace.prepareQuery(columnFamily)
+            .withCql("""select job_execution_id, job_instance_id, start_time, end_time, status, exit_code, exit_message,
+                           create_time, last_updated, version, job_instance_id, job_configuration_location
+                      from batch_job_execution
+                     where job_instance_id in (${jobInstances.id.join(", ")})
+                       and ended = true
+                  /* order by e.job_execution_id desc*/""")
+        .execute()
+
+        (0..<result.result.rows.size()).collect { int i ->
+            mapJobExecutionFromRow(result, i)
+        } as Set
     }
 
     @Override

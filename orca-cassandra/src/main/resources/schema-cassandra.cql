@@ -9,20 +9,22 @@ create index on batch_job_instance (job_name);
 create index on batch_job_instance (job_key);
 
 create table batch_job_execution  (
-	job_execution_id bigint primary key ,
+	job_execution_id bigint,
 	version bigint  ,
 	job_instance_id bigint,
 	create_time timestamp,
 	start_time timestamp,
+	ended boolean,
 	end_time timestamp,
 	status varchar ,
 	exit_code varchar ,
 	exit_message varchar ,
 	last_updated timestamp,
-	job_configuration_location varchar
+	job_configuration_location varchar,
+	primary key ((job_execution_id), job_instance_id)
 ) ;
 
-create index on batch_job_execution (job_instance_id);
+create index on batch_job_execution (ended);
 
 create table batch_job_execution_params  (
 	job_execution_id bigint,

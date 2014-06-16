@@ -34,7 +34,7 @@ class AstyanaxJobExecutionDaoTests extends AbstractJobExecutionDaoTests {
 
     @Override
     protected JobExecutionDao getJobExecutionDao() {
-        new AstyanaxJobExecutionDao(keyspace, null)
+        new AstyanaxJobExecutionDao(keyspace, new AstyanaxJobInstanceDao(keyspace))
     }
 
     @Override

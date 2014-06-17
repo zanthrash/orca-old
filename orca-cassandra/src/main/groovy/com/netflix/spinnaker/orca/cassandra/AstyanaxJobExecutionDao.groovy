@@ -200,7 +200,23 @@ class AstyanaxJobExecutionDao implements JobExecutionDao {
 
     @Override
     void synchronizeStatus(JobExecution jobExecution) {
+        def result = keyspace.prepareQuery(columnFamily)
+            .withCql("select version, status from batch_job_execution where job_execution_id = ?")
+            .asPreparedStatement()
+            .withLongValue(jobExecution.id)
+            .execute()
 
+        if (result.result.rows.size() == 0) {
+            throw new IllegalStateException("Could not find job execution with id of $jobExecution.id.")
+        }
+
+        def row = result.result.rows[0]
+        def currentVersion = row.columns.getColumnByName("version").integerValue
+
+        if (currentVersion != jobExecution.version) {
+            jobExecution.upgradeStatus(BatchStatus.valueOf(row.columns.getColumnByName("status").stringValue))
+            jobExecution.version = currentVersion
+        }
     }
 
     private void validateJobExecution(JobExecution jobExecution) {
@@ -305,7 +321,7 @@ class AstyanaxJobExecutionDao implements JobExecutionDao {
 
     private int getIntegerValueOrNull(ColumnList<String> columns, String columnName) {
         def column = columns.getColumnByName(columnName)
-        /*column.hasValue() ? column.integerValue :*/ 0
+        column.hasValue() ? column.integerValue : 0
         // TODO : this throws spurious seeming NPE. Looks like the column contains 8 x hex 0 bytes
     }
 

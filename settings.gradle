@@ -17,6 +17,7 @@
 include "orca-core",
   "orca-retrofit",
   "orca-bakery",
+  "orca-cassandra",
   "orca-kato",
   "orca-test",
   "orca-smoke-test"

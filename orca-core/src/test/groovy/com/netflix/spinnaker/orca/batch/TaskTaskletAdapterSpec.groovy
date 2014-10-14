@@ -16,6 +16,8 @@
 
 package com.netflix.spinnaker.orca.batch
 
+import static com.netflix.spinnaker.orca.TaskResult.Status.TERMINAL
+
 import spock.lang.Specification
 import spock.lang.Subject
 import spock.lang.Unroll
@@ -88,24 +90,7 @@ class TaskTaskletAdapterSpec extends Specification {
   }
 
   @Unroll
-  def "should write any task outputs to the step context if the task status is #taskStatus"() {
-    given:
-    step.execute(*_) >> new DefaultTaskResult(taskStatus, outputs)
-
-    when:
-    tasklet.execute(stepContribution, chunkContext)
-
-    then:
-    stepContext.stepExecutionContext == outputs
-    stepContext.jobExecutionContext.isEmpty()
-
-    where:
-    taskStatus << [TaskResult.Status.RUNNING]
-    outputs = [foo: "bar", baz: "qux"]
-  }
-
-  @Unroll
-  def "should write any task outputs to the job context if the task status is #taskStatus"() {
+  def "should write any task outputs to the job context, regardless of task status (#taskStatus)"() {
     given:
     step.execute(*_) >> new DefaultTaskResult(taskStatus, outputs)
 
@@ -117,7 +102,7 @@ class TaskTaskletAdapterSpec extends Specification {
     stepContext.jobExecutionContext == outputs
 
     where:
-    taskStatus << [TaskResult.Status.FAILED, SUCCEEDED]
+    taskStatus << [TaskResult.Status.FAILED, SUCCEEDED, TaskResult.Status.RUNNING]
     outputs = [foo: "bar", baz: "qux"]
   }
 
@@ -137,6 +122,18 @@ class TaskTaskletAdapterSpec extends Specification {
     where:
     key = "foo"
     value = "bar"
+  }
+
+  def "should mark step execution as terminateOnly and set exit status if task status is terminal"() {
+    given:
+    step.execute(*_) >> new DefaultTaskResult(TERMINAL, [:])
+
+    when:
+    tasklet.execute(stepContribution, chunkContext)
+
+    then:
+    stepExecution.terminateOnly
+    stepExecution.exitStatus == ExitStatus.FAILED
   }
 
 }

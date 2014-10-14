@@ -52,7 +52,6 @@ class TaskTaskletAdapter implements Tasklet {
   @Override
   RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) {
     def jobExecutionContext = chunkContext.stepContext.stepExecution.jobExecution.executionContext
-    def stepExecutionContext = chunkContext.stepContext.stepExecution.executionContext
 
     def result = task.execute(new ChunkContextAdapter(chunkContext))
     if (result.status == TaskResult.Status.TERMINAL) {
@@ -60,10 +59,8 @@ class TaskTaskletAdapter implements Tasklet {
       chunkContext.stepContext.stepExecution.setExitStatus(ExitStatus.FAILED)
     }
 
-    // TODO: could consider extending ExecutionContextPromotionListener in order to do this but then we need to know exactly which keys to promote
-    def executionContext = result.status.complete ? jobExecutionContext : stepExecutionContext
     result.outputs.each { k, v ->
-      executionContext.put(k, v)
+      jobExecutionContext.put(k, v)
     }
 
     def batchStepStatus = BatchStepStatus.mapResult(result)

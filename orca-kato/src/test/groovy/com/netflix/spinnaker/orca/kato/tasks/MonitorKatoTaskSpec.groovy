@@ -56,4 +56,50 @@ class MonitorKatoTaskSpec extends Specification {
     katoStatus = completed ? "completed" : "incomplete"
   }
 
+  def "creates new task"() {
+    given:
+    List<Task.StatusLine> history = [new Task.StatusLine(phase: 'task_phase', status: 'task_status')]
+    def taskId = "kato-task-id"
+    def existingTask = [id: "old-kato-task-id", history: [], status: 'unknown']
+
+    task.kato = Stub(KatoService) {
+      lookupTask(taskId) >> Observable.from(new Task(taskId, new Task.Status(completed: false, failed: false), [], history))
+    }
+
+    and:
+    def context = new SimpleTaskContext()
+    context."kato.last.task.id" = new TaskId(taskId)
+    context."kato.tasks" = [existingTask]
+
+    expect:
+    task.execute(context).status == TaskResult.Status.RUNNING
+    context."kato.tasks".size() == 2
+    context."kato.tasks".get(0) == existingTask
+    context."kato.tasks".get(1).history.size() == 1
+    context."kato.tasks".get(1).history[0].phase == 'task_phase'
+    context."kato.tasks".get(1).history[0].status == 'task_status'
+  }
+
+  def "updates existing task"() {
+    given:
+    List<Task.StatusLine> history = [new Task.StatusLine(phase: 'task_phase', status: 'task_status')]
+    def taskId = "kato-task-id"
+
+    task.kato = Stub(KatoService) {
+      lookupTask(taskId) >> Observable.from(new Task(taskId, new Task.Status(completed: false, failed: false), [], history))
+    }
+
+    and:
+    def context = new SimpleTaskContext()
+    context."kato.last.task.id" = new TaskId(taskId)
+    context."kato.tasks" = [[id: taskId, history: [], status: 'unknown']]
+
+    expect:
+    task.execute(context).status == TaskResult.Status.RUNNING
+    context."kato.tasks".size() == 1
+    context."kato.tasks".get(0).history.size() == 1
+    context."kato.tasks".get(0).history[0].phase == 'task_phase'
+    context."kato.tasks".get(0).history[0].status == 'task_status'
+  }
+
 }

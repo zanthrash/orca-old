@@ -50,20 +50,24 @@ class MonitorKatoTask implements RetryableTask {
     if (status == TaskResult.Status.SUCCEEDED) {
       outputs["deploy.server.groups"] = getServerGroupNames(katoTask)
     }
-    if (status == TaskResult.Status.SUCCEEDED || status == TaskResult.Status.TERMINAL) {
-      List<Map<String, Object>> katoTasks = []
-      if (context.inputs.containsKey("kato.tasks")) {
-        katoTasks = context.inputs."kato.tasks" as List<Map<String, Object>>
-      }
-      Map<String, Object> m = [id: katoTask.id, status: katoTask.status, history: katoTask.history]
-      if (katoTask.resultObjects.find { it.type == "EXCEPTION" }) {
-        def exception = katoTask.resultObjects.find { it.type == "EXCEPTION" }
-        m.exception = exception
-      }
-      katoTasks << m
-      outputs["kato.tasks"] = katoTasks
 
+    List<Map<String, Object>> katoTasks = []
+    if (context.inputs.containsKey("kato.tasks")) {
+      katoTasks = context.inputs."kato.tasks" as List<Map<String, Object>>
     }
+
+    if (!(katoTasks.any { it.id == taskId.id })) {
+      katoTasks << ([id: katoTask.id] as Map<String, Object>)
+    }
+    def outputTask = katoTasks.find { it.id == katoTask.id }
+    outputTask.status = katoTask.status
+    outputTask.history = katoTask.history
+
+    if (katoTask.resultObjects.find { it.type == "EXCEPTION" }) {
+      def exception = katoTask.resultObjects.find { it.type == "EXCEPTION" }
+      outputTask.exception = exception
+    }
+    outputs["kato.tasks"] = katoTasks
 
     new DefaultTaskResult(status, outputs)
   }
